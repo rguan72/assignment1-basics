@@ -144,3 +144,9 @@ class TransformerLM(nn.Module):
         x = self.ln_final.forward(x)
         x = self.lm_head.forward(x)
         return x
+
+def cross_entropy(logits: Float[Tensor, "... vocab_size"], targets: Int[Tensor, "..."]) -> Float[Tensor, ""]:
+    logits_stable = logits - torch.amax(logits, dim=-1, keepdim=True)
+    lhs = torch.log(torch.sum(torch.exp(logits_stable), dim=-1))
+    rhs = torch.gather(input=logits_stable, dim=-1, index=targets.unsqueeze(-1)).squeeze()
+    return torch.mean(lhs - rhs)
