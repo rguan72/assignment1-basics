@@ -3,26 +3,41 @@ import os
 from typing import BinaryIO
 import collections
 import regex as re
+from multiprocessing import Pool
+import copy
+
+PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
+
+def pretokenize(input_path: str | PathLike, start: int, end: int, special_tokens: list[str]) -> dict[tuple[bytes, ...], int]:
+    with open(input_path, "rb") as f:
+        pretokens: dict[tuple[bytes, ...], int] = collections.defaultdict(int)
+        f.seek(start)
+        chunk = f.read(end - start).decode("utf-8", errors="ignore")
+        sections =  re.split(pattern="|".join([re.escape(special_token) for special_token in special_tokens]), string=chunk)
+        for section in sections:
+            for match in re.finditer(PAT, section):
+                match_encoded = match.group().encode("utf-8")
+                match_bytes = tuple(match_encoded[i:i+1] for i in range(len(match_encoded)))
+                pretokens[match_bytes] += 1
+        return pretokens
 
 def train_bpe(input_path: str | PathLike, vocab_size: int, special_tokens: list[str]) -> tuple[dict[int, bytes], list[tuple[bytes, bytes]]]:
     # TODOS
     # pretokenization efficiency: handle parallelization
     # merge efficiency: don't have to merge over the entire vocab? potentially?
-
-    PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
-    pretokens: dict[tuple[bytes, ...], int] = collections.defaultdict(int)
+    num_processes = 4
     with open(input_path, "rb") as f:
-        num_processes = 4
         boundaries = find_chunk_boundaries(f, num_processes, b"<|endoftext|>")
-        for start, end in zip(boundaries[:-1], boundaries[1:]):
-            f.seek(start)
-            chunk = f.read(end - start).decode("utf-8", errors="ignore")
-            sections =  re.split(pattern="|".join([re.escape(special_token) for special_token in special_tokens]), string=chunk)
-            for section in sections:
-                for match in re.finditer(PAT, section):
-                    match_encoded = match.group().encode("utf-8")
-                    match_bytes = tuple(match_encoded[i:i+1] for i in range(len(match_encoded)))
-                    pretokens[match_bytes] += 1
+    args_list = []
+    for start, end in zip(boundaries[:-1], boundaries[1:]):
+        args_list.append((input_path, start, end, special_tokens))
+    with Pool(processes=num_processes) as pool:
+        pretoken_chunks = pool.starmap(pretokenize, args_list)
+
+    pretokens = copy.deepcopy(pretoken_chunks[0])
+    for pretoken_chunk in pretoken_chunks[1:]:
+        for pretoken, count in pretoken_chunk.items():
+            pretokens[pretoken] += count
 
     merges: list[tuple[bytes, bytes]] = []
     vocab = create_initial_vocab(special_tokens)
