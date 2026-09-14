@@ -1,8 +1,7 @@
-from torch import nn
-import torch
 import einops
+import torch
 from jaxtyping import Bool, Float, Int
-from torch import Tensor
+from torch import Tensor, nn
 
 class Linear(nn.Module):
     def __init__(self, in_features: int, out_features: int, device=None, dtype=None):
