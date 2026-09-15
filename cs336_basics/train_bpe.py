@@ -5,6 +5,9 @@ import collections
 import regex as re
 from multiprocessing import Pool
 import copy
+import time
+import resource
+import sys
 
 PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
 
@@ -23,8 +26,8 @@ def pretokenize(input_path: str | PathLike, start: int, end: int, special_tokens
 
 def train_bpe(input_path: str | PathLike, vocab_size: int, special_tokens: list[str]) -> tuple[dict[int, bytes], list[tuple[bytes, bytes]]]:
     # TODOS
-    # pretokenization efficiency: handle parallelization
     # merge efficiency: don't have to merge over the entire vocab? potentially?
+    start_time = time.perf_counter()
     num_processes = 4
     with open(input_path, "rb") as f:
         boundaries = find_chunk_boundaries(f, num_processes, b"<|endoftext|>")
@@ -39,6 +42,10 @@ def train_bpe(input_path: str | PathLike, vocab_size: int, special_tokens: list[
         for pretoken, count in pretoken_chunk.items():
             pretokens[pretoken] += count
 
+    mid_time = time.perf_counter()
+    print(f"pretokenization done. time (s): {mid_time - start_time}")
+    print(f"peak memory usage in MB after pretokenization: {peak_rss_mib()}")
+
     merges: list[tuple[bytes, bytes]] = []
     vocab = create_initial_vocab(special_tokens)
     num_merges = vocab_size - len(vocab)
@@ -49,6 +56,9 @@ def train_bpe(input_path: str | PathLike, vocab_size: int, special_tokens: list[
         pretokens = merge_vocab(max_pair, pretokens)
         new_idx = len(vocab)
         vocab[new_idx] = max_pair[0] + max_pair[1]
+    end_time = time.perf_counter()
+    print(f"merge done. time (s): {end_time - start_time}")
+    print(f"peak memory usage in MB after merging: {peak_rss_mib()}")
 
     return vocab, merges
 
@@ -127,3 +137,7 @@ def find_chunk_boundaries(
 
     # Make sure all boundaries are unique, but might be fewer than desired_num_chunks
     return sorted(set(chunk_boundaries))
+
+def peak_rss_mib():
+    kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    return kb / 2**20 if sys.platform == "darwin" else kb / 2**10
