@@ -12,3 +12,6 @@ Traceback (most recent call last):
   File "<stdin>", line 1, in decode_utf_8_bytes_to_str_wrong
 UnicodeDecodeError: 'utf-8' codec can't decode byte 0xf0 in position 0: unexpected end of data
 c) bytes([255, 255]) does not decode because no utf-8 unicode character starts with 255. utf-8 has a scheme for showing how many bytes the character requires, and 11111111 is not a valid prefix since there are no 8 byte characters. We can also have a valid start byte but invalid continuation byte.
+
+2.5a) Tokenization takes 40 seconds with a peak memory usage of 148 MB. 
+b) Pretokenization takes the vast majority of that time, at 39 seconds. 
