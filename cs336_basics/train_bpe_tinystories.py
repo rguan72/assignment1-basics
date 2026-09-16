@@ -6,4 +6,4 @@ if __name__ == "__main__":
     with open("tinystories_vocab.pkl", "wb") as f:
         pickle.dump(vocab, f, protocol=pickle.HIGHEST_PROTOCOL)
     with open("tinystories_merges.pkl", "wb") as f:
-        pickle.dump(vocab, f, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(merges, f, protocol=pickle.HIGHEST_PROTOCOL)
