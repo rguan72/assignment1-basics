@@ -7,11 +7,6 @@ import collections
 import regex as re
 from multiprocessing import Pool
 import copy
-import time
-import resource
-import sys
-import threading
-import psutil
 
 PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
 
@@ -49,8 +44,6 @@ def pretokenize(input_path: str | PathLike, start: int, end: int, special_tokens
         return pretokens
 
 def train_bpe(input_path: str | PathLike, vocab_size: int, special_tokens: list[str]) -> tuple[dict[int, bytes], list[tuple[bytes, bytes]]]:
-    start_time = time.perf_counter()
-    tree_monitor = TreeMemoryMonitor().start()
     num_processes = 8
     with open(input_path, "rb") as f:
         boundaries = find_chunk_boundaries(f, num_processes, b"<|endoftext|>")
@@ -67,11 +60,6 @@ def train_bpe(input_path: str | PathLike, vocab_size: int, special_tokens: list[
     pretokens: dict[int, CountWithMergedPretoken] = {}
     for i, (pretoken, count) in enumerate(pretokens_unindexed.items()):
         pretokens[i] = CountWithMergedPretoken(count=count, merged_pretoken=pretoken)
-
-    mid_time = time.perf_counter()
-    print(f"pretokenization done. time (s): {mid_time - start_time}")
-    print(f"peak memory usage (main process only) in MB after pretokenization: {peak_rss_mib()}")
-    print(f"peak memory usage (main + pool workers) in MB after pretokenization: {tree_monitor.peak_mib}")
 
     pair_counts = get_stats(pretokens)
     pair_heap = [BytePairWithCount(count=count_with_ids.count, pair=pair) for pair, count_with_ids in pair_counts.items()]
@@ -129,12 +117,6 @@ def train_bpe(input_path: str | PathLike, vocab_size: int, special_tokens: list[
         new_idx = len(vocab)
         vocab[new_idx] = max_pair[0] + max_pair[1]
 
-    tree_monitor.stop()
-    end_time = time.perf_counter()
-    print(f"merge done. time (s): {end_time - mid_time}")
-    print(f"peak memory usage (main process only) in MB after merging: {peak_rss_mib()}")
-    print(f"peak memory usage (main + pool workers) in MB overall: {tree_monitor.peak_mib}")
-
     return vocab, merges
 
 def create_initial_vocab(special_tokens: list[str]) -> dict[int, bytes]:
@@ -156,21 +138,6 @@ def get_stats(vocab: dict[int, CountWithMergedPretoken]) -> dict[tuple[bytes, by
             else:
                 pairs[pretoken[i],pretoken[i+1]] = CountWithIds(count=count_with_merged_pretoken.count, pretoken_original_ids=set([pretoken_original_id]))
     return pairs
-
-def merge_vocab(pair: tuple[bytes, bytes], v_in: dict[tuple[bytes, ...], int]) -> dict[tuple[bytes, ...], int]:
-    v_out: dict[tuple[bytes, ...], int] = {}
-    for pretoken in v_in:
-        pretoken_out = ()
-        i = 0
-        while i < len(pretoken):
-            if i+1 < len(pretoken) and (pretoken[i], pretoken[i+1]) == pair:
-                pretoken_out += (pretoken[i]+pretoken[i+1],)
-                i += 2
-            else:
-                pretoken_out += (pretoken[i],)
-                i += 1
-        v_out[pretoken_out] = v_in[pretoken]
-    return v_out
 
 def find_chunk_boundaries(
     file: BinaryIO,
@@ -217,56 +184,3 @@ def find_chunk_boundaries(
 
     # Make sure all boundaries are unique, but might be fewer than desired_num_chunks
     return sorted(set(chunk_boundaries))
-
-def peak_rss_mib():
-    kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    return kb / 2**20 if sys.platform == "darwin" else kb / 2**10
-
-
-class TreeMemoryMonitor:
-    """Background sampler tracking peak combined RSS of this process and all
-    live descendants (e.g. multiprocessing.Pool workers).
-
-    resource.getrusage(RUSAGE_SELF) only sees this process, and
-    RUSAGE_CHILDREN only records the single largest *reaped* child's peak
-    RSS (not the sum of memory used concurrently by all pool workers), so
-    neither captures true peak memory when work is fanned out to
-    subprocesses. This polls /proc (or platform equivalent) via psutil
-    instead.
-    """
-
-    def __init__(self, interval_sec: float = 0.1):
-        self.interval_sec = interval_sec
-        self._process = psutil.Process()
-        self._peak_bytes = 0
-        self._stop_event = threading.Event()
-        self._thread = threading.Thread(target=self._run, daemon=True)
-
-    def _sample_bytes(self) -> int:
-        total = 0
-        procs = [self._process] + self._process.children(recursive=True)
-        for proc in procs:
-            try:
-                total += proc.memory_info().rss
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                pass
-        return total
-
-    def _run(self):
-        while not self._stop_event.is_set():
-            self._peak_bytes = max(self._peak_bytes, self._sample_bytes())
-            self._stop_event.wait(self.interval_sec)
-
-    def start(self):
-        self._thread.start()
-        return self
-
-    def stop(self):
-        self._stop_event.set()
-        self._thread.join()
-        # catch any peak reached between the last sample and shutdown
-        self._peak_bytes = max(self._peak_bytes, self._sample_bytes())
-
-    @property
-    def peak_mib(self) -> float:
-        return self._peak_bytes / 2**20
