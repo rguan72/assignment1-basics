@@ -1,3 +1,4 @@
+from networkx import uniform_random_intersection_graph
 from collections.abc import Iterable, Iterator
 import regex as re
 import pickle
@@ -11,6 +12,7 @@ class Tokenizer:
         self.merges = merges
         self.merges_idx = dict((byte_pair, idx) for idx, byte_pair in enumerate(merges))
         self.special_tokens = special_tokens if special_tokens else []
+        self.cache: dict[bytes, list[int]] = {}
 
     @classmethod
     def from_files(cls, vocab_filepath: str, merges_filepath: str, special_tokens: list[str] | None=None):
@@ -27,8 +29,14 @@ class Tokenizer:
                 tokens.append(self.vocab_idx[section.encode("utf-8")])
                 continue
             for match in re.finditer(PAT, section):
-                pretoken = [bytes([b]) for b in match.group().encode("utf-8")]
-                tokens.extend(self.vocab_idx[piece] for piece in self._apply_merges(pretoken))
+                match_bytes = match.group().encode("utf-8")
+                if match_bytes in self.cache:
+                    tokens.extend(self.cache[match_bytes])
+                else:
+                    pretoken = [bytes([b]) for b in match_bytes]
+                    new_tokens = [self.vocab_idx[piece] for piece in self._apply_merges(pretoken)]
+                    tokens.extend(new_tokens)
+                    self.cache[match_bytes] =  new_tokens
         return tokens
     
     def _split_on_special_tokens(self, text: str) -> list[str]:

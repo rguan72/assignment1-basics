@@ -17,5 +17,16 @@ c) bytes([255, 255]) does not decode because no utf-8 unicode character starts w
 
 b) Pretokenization takes the vast majority of that time: 39 seconds.
 
-a) The longest token is b'\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82'. This dataset is just a web scrape, and the vocab is much larger, so we might get relatively common sequences of bytes that are just weird unreadable sequences or emojis or characters in other languages.
+a) The longest token is b'\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82'. This is mojibake which can plausibly be contained in web scrapes, and mojibake creates repetitive, common patterns that are favored by the BPE tokenizer.
+
 b) tinystories vocabulary is mostly just common english words, while owt has a much wider variety of tokens including some that are not very readable in english. However, the bulk of the tokens for both are English words. 
+
+2.7a)
+tinystories compression ratio: 4.059605488850772
+owt compression ratio: 4.596554415030914
+
+b) owt_cross compression ratio: 3.190849237436453, lower than the tinystories compression ratio. tinystories tokenizer is optimized to produce the maximum number of byte pair merges over the tinystories dataset, but the owt dataset is qualitatively different (urls, mojibake) so that same tokenizer achieves a lower compression ratio.
+
+c) Tinystories validation: 21.5 MB/1.89 s = 11.43 MB/s. The Pile would take about 20 hours. 
+
+d) uint16 is fine because all tokens are integers between 0 and 32,000 (32,000 for our OWT tokenizer, 10,000 for our tinystories one).
