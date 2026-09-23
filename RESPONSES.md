@@ -30,3 +30,29 @@ b) owt_cross compression ratio: 3.190849237436453, lower than the tinystories co
 c) Tinystories validation: 21.5 MB/1.89 s = 11.43 MB/s. The Pile would take about 20 hours. 
 
 d) uint16 is fine because all tokens are integers between 0 and 32,000 (32,000 for our OWT tokenizer, 10,000 for our tinystories one).
+
+3.5a) Substituting values into d_model(2vocab_size + num_layers(4d_model + 3d_ff + 2) + 1), there are 1,640,452,800 parameters. fp32 for parameters means 4 bytes per parameter, or 6.56 GB to load the weights. 
+b) Look at comments in module.py for the derivation of FLOPs for matrix multiplies. Total FLOPs come from substituting values into 2b*context_length*d_model(num_layers*(4d_model + 2context_length + 3d_ff) + vocab_size), which is 3,516,769,894,400 or 3.52 teraflops. 
+c) SwGLU FFN requires the most FLOPs, with attention Q/K/V/O projections requiring the second most. 
+d) As model size increases, the output projection (lm_head) becomes a smaller portion of total FLOPs per forward pass while feed forward becomes a larger portion of total FLOPs per forward pass.
+
+Shares across all four sizes
+Component	Small	Medium	Large	XL
+Q/K/V/O projections	19.9%	24.8%	27.0%	28.6%
+Scaled dot-product attention	13.3%	12.4%	10.8%	9.2%
+SwiGLU FFN	39.8%	50.1%	54.8%	57.5%
+lm_head	27.1%	12.7%	7.4%	4.7%
+
+e) Total FLOPs increases 38x, which is consistent with attention FLOPs scaling quadratically with context length. Scaled dot product attention takes up dramatically more % of the total FLOPs while everything else decreases. 
+
+Component	T = 1,024	T = 16,384
+Q/K/V/O projections	28.6%	12.1%
+Scaled dot-product attention	9.2%	61.7%
+SwiGLU FFN	57.5%	24.2%
+lm_head	4.7%	2.0%
+Total FLOPs	3.5168e12	1.3358e14 (38× more)
+
+4.2) For lr=1e1, our baseline, loss decays over 10 iterations. For lr=1e2, loss decays faster than baseline, and reaches a value very close to 0 within 10 iterations. For lr=1e3, loss grows over the 10 iterations, diverging. 
+
+4.3a) parameters (one forward pass): d_model(2vocab_size + num_layers(12d_model + 2) + 1)
+
