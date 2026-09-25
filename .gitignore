@@ -167,3 +167,6 @@ data/
 *.pkl
 *.out
 *.npy
+
+# Weights & Biases local run files
+wandb/
