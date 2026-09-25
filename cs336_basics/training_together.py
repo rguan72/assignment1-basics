@@ -5,23 +5,23 @@ from cs336_basics import training
 from cs336_basics import optimizer
 from cs336_basics import module
 
-train_data_fname = "tinystories_train_tokenized.pkl"
-valid_data_fname = "tinystories_valid_tokenized.pkl"
+train_data_fname = "tinystories_train_tokenized.npy"
+valid_data_fname = "tinystories_valid_tokenized.npy"
 checkpoint_fname = "tinystories_checkpoint.pkl"
 batch_size = 10
 context_length = 256
 device = "mps"
 vocab_size = 10_000
-iters = 1000
-d_model = 900
+iters = 100
+d_model = 512
 num_layers = 20
 num_heads = 16
-d_ff = 2400
-rope_theta = 1000
+d_ff = 1344
+rope_theta = 10_000
 max_learning_rate = 1e-3
 min_learning_rate = 1e-6
 warmup_iters = 5
-cosine_cycle_iters = 5
+cosine_cycle_iters = 80
 weight_decay = 0.01
 betas = (0.90, 0.99)
 eps = 1e-6
@@ -29,8 +29,8 @@ validation_cycle = 10
 checkpoint_cycle = 100
 max_l2_norm = 50
 
-train_data = np.memmap(train_data_fname, dtype=np.uint16)
-valid_data = np.memmap(valid_data_fname, dtype=np.uint16)
+train_data = np.load(train_data_fname, mmap_mode="r")
+valid_data = np.load(valid_data_fname, mmap_mode="r")
 model = module.TransformerLM(vocab_size, context_length, d_model, num_layers, num_heads, d_ff, rope_theta).to(device)
 optim = optimizer.AdamW(model.parameters(), max_learning_rate, weight_decay, betas, eps)
 
@@ -56,6 +56,4 @@ for it in range(iters):
         
     if it > 0 and it % checkpoint_cycle == 0:
         training.save_checkpoint(model, optim, it, checkpoint_fname)
-    
-    
     
