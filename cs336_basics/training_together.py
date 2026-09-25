@@ -78,23 +78,11 @@ class Config:
             else:
                 self.device = "cpu"
 
-def get_validation_batch(x: npt.NDArray[np.uint16], batch_size: int, context_length: int, device: str) -> tuple[torch.Tensor, torch.Tensor]:
-    # 1 ≤ 𝑖 ≤ 𝑛 − 𝑚
-    # n: dataset size
-    # m: context_length
-    # [0, m) and [1, m+1) at the low end
-    # [n-1-m, n-1) and [n-m, n) at the high end (why we can sample i between 1 and n-m)
-    starting_indices = np.arange(0, batch_size * context_length, context_length).reshape(batch_size, 1)
-    vary = np.arange(0, context_length).reshape(1, context_length)
-    indices = starting_indices + vary
-    return (torch.tensor(x[indices].astype(np.int64), device=device), torch.tensor(x[indices+1].astype(np.int64), device=device)) 
-
-
 @torch.no_grad()
 def evaluate(model: torch.nn.Module, data: np.ndarray, cfg: Config) -> tuple[float, float]:
     losses = []
     for _ in range(cfg.val_batches):
-        inputs, targets = get_validation_batch(data, cfg.batch_size, cfg.context_length, cfg.device)
+        inputs, targets = training.get_batch(data, cfg.batch_size, cfg.context_length, cfg.device)
         losses.append(module.cross_entropy(model(inputs), targets).item())
     avg_loss = sum(losses) / len(losses)
     perplexity = math.exp(avg_loss)
