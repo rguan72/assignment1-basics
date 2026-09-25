@@ -4,6 +4,7 @@ Examples:
     uv run python -m cs336_basics.training_together --iters 200 --no-wandb
     uv run python -m cs336_basics.training_together --modal --iters 5000 --batch-size 128
 """
+from numpy.matlib import float128
 import math
 
 import argparse
@@ -79,14 +80,13 @@ class Config:
                 self.device = "cpu"
 
 @torch.no_grad()
-def evaluate(model: torch.nn.Module, data: np.ndarray, cfg: Config) -> tuple[float, float]:
+def evaluate(model: torch.nn.Module, data: np.ndarray, cfg: Config) -> float:
     losses = []
     for _ in range(cfg.val_batches):
         inputs, targets = training.get_batch(data, cfg.batch_size, cfg.context_length, cfg.device)
         losses.append(module.cross_entropy(model(inputs), targets).item())
     avg_loss = sum(losses) / len(losses)
-    perplexity = math.exp(avg_loss)
-    return avg_loss, perplexity
+    return avg_loss
 
 
 def train(cfg: Config) -> None:
@@ -142,8 +142,6 @@ def train(cfg: Config) -> None:
             val_loss, val_perplexity = evaluate(model, valid_data, cfg)
             run.log({"val/loss": val_loss}, step=step)
             logger.info("step %d/%d | val loss %.4f", step, cfg.iters, val_loss)
-            run.log({"val/perplexity": val_perplexity}, step=step)
-            logger.info("step %d/%d | val perplexity %.4f", step, cfg.iters, val_perplexity)
 
         if step % cfg.checkpoint_cycle == 0 or last_step:
             Path(cfg.checkpoint_path).parent.mkdir(parents=True, exist_ok=True)
