@@ -1,4 +1,3 @@
-from networkx import uniform_random_intersection_graph
 from collections.abc import Iterable, Iterator
 import regex as re
 import pickle

@@ -41,6 +41,7 @@ class RMS(nn.Module):
         rms = torch.sqrt(einops.reduce(x ** 2, 'b t c -> b t 1', 'mean') + self.eps)
         result = (x * self.weight) / rms
         return result.to(in_dtype)
+        # Activations: 4b * t * d_model
 
 class SwiGLU(nn.Module):
     def __init__(self, d_model: int, d_ff: int, device=None, dtype=None):
@@ -51,11 +52,13 @@ class SwiGLU(nn.Module):
         # params: 3 * d_model * d_ff
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        w1x = self.w1(x) # FLOPS: 2 x prod(b_dims) x d_model x d_ff
+        w1x = self.w1(x) # FLOPS: 2 x prod(b_dims) x d_model x d_ff.
         silu = w1x * torch.sigmoid(w1x)
         w3x = self.w3(x)
         return self.w2(silu * w3x)
         # total FLOPS: 6 x prod(b_dims) x d_model x d_ff
+        # total Activations: 4b * t (4d_ff + d_model)
+        
 
 class RotaryPositionEmbedding(nn.Module):
     def __init__(self, theta: float, d_k: int, max_seq_len: int, device=None):
@@ -114,7 +117,7 @@ class CausalMultiHeadSelfAttention(nn.Module):
     def forward(self, x: Float[Tensor, "batch time channel"], token_positions: Int[Tensor, "... sequence_length"] | None) -> Tensor:
         t = x.shape[1]
         if token_positions is None:
-            token_positions = torch.arange(t)
+            token_positions = torch.arange(t, device=x.device)
         q = self.q_proj.forward(x)
         k = self.k_proj.forward(x)
         v = self.v_proj.forward(x)
@@ -124,12 +127,13 @@ class CausalMultiHeadSelfAttention(nn.Module):
         k_batched = einops.rearrange(k, 'b t (n k) -> b n t k', k=self.dk, n=self.num_heads)
         k_batched_rope = self.rope.forward(k_batched, token_positions)
         v_batched = einops.rearrange(v, 'b t (n k) -> b n t k', k=self.dk, n=self.num_heads)
-        mask = torch.tril(torch.ones(t, t)) == 1
+        mask = torch.tril(torch.ones(t, t, device=x.device)) == 1
         attn = scaled_dot_product_attention(q_batched_rope, k_batched_rope, v_batched, mask) # b n t dk
         # FLOPS: 2 * (b * num_heads) * t * t * (dk + dk) = 4(b*num_heads)(t^2)(dk)
         return self.output_proj.forward(einops.rearrange(attn, 'b n t dk -> b t (n dk)'))
         # FLOPS: 2(b*t)(num_heads*dk)(d_model)
         # Total FLOPS: (2*b*t*num_heads*dk)(d_model + 2t + 3d_model) = 4(b*t*num_heads*dk)(2d_model+t)
+        # Total Activations: 4 * b * t(5d_model + 2t * num_heads)
 
 class TransformerBlock(nn.Module):
     def __init__(self, d_model: int, num_heads: int, d_ff: int, theta: float, max_seq_len: int):
@@ -138,7 +142,9 @@ class TransformerBlock(nn.Module):
         self.ln2 = RMS(d_model) # params: d_model
         self.attn = CausalMultiHeadSelfAttention(d_model, num_heads, theta, max_seq_len) # params: 4 * num_heads * dk * d_model
         self.ffn = SwiGLU(d_model, d_ff) # params: 3 * d_model * d_ff
-        # Total params: 2d_model + 4d_model(num_heads*dk) + 3d_model * d_ff = d_model(4num_heads*dk + 3d_ff + 2) 
+        # Total params: 2d_model + 4d_model(num_heads*dk) + 3d_model * d_ff = d_model(4num_heads*dk + 3d_ff + 2)
+        # Total activations: 2 * 4b * t * d_model + 4 * b * t(5d_model + 2t * num_heads) + 4b * t (4d_ff + d_model)
+        # = 8*b*t(28/3*d_model + t*num_heads)
 
     def forward(self, x: Float[Tensor, "batch time channel"]) -> Tensor:
         y = x + self.attn.forward(self.ln1.forward(x), None) # FLOPS: 4(b*t*num_heads*(d_model//num_heads))(2d_model+t)
@@ -172,9 +178,11 @@ class TransformerLM(nn.Module):
         return x
         # total FLOPS: num_layers * 2(b*context_length*d_model)(4d_model + 2context_length + 3d_ff) + 2*b*context_length*(d_model)(vocab_size)
         # = 2b*context_length*d_model(num_layers*(4d_model + 2context_length + 3d_ff) + vocab_size)
+        # total activations: num_layers*8*b*t(28/3*d_model + t*num_heads) + 4b * t * d_model + 4b * t * vocab_size + 4
 
 def cross_entropy(logits: Float[Tensor, "... vocab_size"], targets: Int[Tensor, "..."]) -> Float[Tensor, ""]:
     logits_stable = logits - torch.amax(logits, dim=-1, keepdim=True)
     lhs = torch.log(torch.sum(torch.exp(logits_stable), dim=-1))
     rhs = torch.gather(input=logits_stable, dim=-1, index=targets.unsqueeze(-1)).squeeze()
     return torch.mean(lhs - rhs)
+    # total activations: 4 * b * t * vocab_size since we save full gradient

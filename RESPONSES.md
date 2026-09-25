@@ -54,5 +54,20 @@ Total FLOPs	3.5168e12	1.3358e14 (38× more)
 
 4.2) For lr=1e1, our baseline, loss decays over 10 iterations. For lr=1e2, loss decays faster than baseline, and reaches a value very close to 0 within 10 iterations. For lr=1e3, loss grows over the 10 iterations, diverging. 
 
-4.3a) parameters (one forward pass): d_model(2vocab_size + num_layers(12d_model + 2) + 1)
+4.3a) 
+Activations: 4·b·t · [ num_layers · (56/3 · d_model + 2·t·num_heads) + d_model + 2·vocab_size ]
+Parameters: 4 * d_model(2vocab_size + num_layers(12d_model + 2) + 1)
+Gradients: 4 * d_model(2vocab_size + num_layers(12d_model + 2) + 1)
+Optimizer state: 8 * d_model(2vocab_size + num_layers(12d_model + 2) + 1)
+Total: sum of all of them
+
+b) 16,356,614,144·b + 26,168,601,600 bytes = (16.36 * b + 26.17) GB. we need b < 4 to fit in 80 GB of memory. 
+c) The FLOPs are dominated by the weight decay step, calculating the two moments, and the final parameter update.
+p.data *= (1 - lr * weight_decay): 1
+m = b1 * m + (1 - b1) * grad: 3
+v = b2 * v + (1 - b2) * grad ** 2: 4
+p.data -= lr_adj * m / (torch.sqrt(v) + eps): 5
+So that adds up to 13 FLOPs per parameter.
+
+d) Forward pass FLOPs: 2b*context_length*d_model(num_layers*(4d_model + 2context_length + 3d_ff) + vocab_size). Backward pass FLOPs: 4b*context_length*d_model(num_layers*(4d_model + 2context_length + 3d_ff) + vocab_size). AdamW optimizer FLOPs are negligible. This leads to 10,550,309,683,200 · b FLOPs per step. For 400K steps and batch size 1024, that is 4,321,406,846,238,720,000,000 ≈ 4.32 × 10^{21} FLOPs for training. Total seconds: 4,321,406,846,238,720,000,000 / (495 teraFLOPs/s * 0.5) ≈ 17,460,230 seconds ~ 202 days on a single H100. 
 
