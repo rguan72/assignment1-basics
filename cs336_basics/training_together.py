@@ -139,7 +139,7 @@ def train(cfg: Config) -> None:
             logger.info("step %d/%d | train loss %.4f | lr %.2e | %.1fs", step, cfg.iters, train_loss, lr, elapsed)
 
         if step % cfg.validation_cycle == 0 or last_step:
-            val_loss, val_perplexity = evaluate(model, valid_data, cfg)
+            val_loss = evaluate(model, valid_data, cfg)
             run.log({"val/loss": val_loss}, step=step)
             logger.info("step %d/%d | val loss %.4f", step, cfg.iters, val_loss)
 
