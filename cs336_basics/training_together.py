@@ -4,9 +4,6 @@ Examples:
     uv run python -m cs336_basics.training_together --iters 200 --no-wandb
     uv run python -m cs336_basics.training_together --modal --iters 5000 --batch-size 128
 """
-from numpy.matlib import float128
-import math
-
 import argparse
 import dataclasses
 import logging
