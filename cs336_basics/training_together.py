@@ -53,9 +53,9 @@ class Config:
     device: str | None = None  # default: cuda > mps > cpu
     seed: int = 0
     log_interval: int = 10
-    validation_cycle: int = 10
+    validation_cycle: int = 100
     val_batches: int = 10
-    checkpoint_cycle: int = 100
+    checkpoint_cycle: int = 1000
     wandb: bool = True
     wandb_project: str = "cs336-basics"
     run_name: str | None = None
@@ -190,7 +190,7 @@ def run_on_modal(cfg: Config) -> None:
         checkpoint_path=f"{VOLUME_MOUNT}/checkpoints/{Path(cfg.checkpoint_path).name}",
         device="cuda",
     )
-    with modal.enable_output(), app.run():
+    with modal.enable_output(), app.run(detach=True):
         train_remote.remote(dataclasses.asdict(remote_cfg))
 
 
