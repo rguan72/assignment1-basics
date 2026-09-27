@@ -2,7 +2,7 @@
 
 Examples:
     uv run python -m cs336_basics.training_together --iters 200 --no-wandb
-    uv run python -m cs336_basics.training_together --modal --iters 5000 --batch-size 128
+    uv run python -m cs336_basics.training_together --modal --iters 20_000 --batch-size 128
 """
 import argparse
 import dataclasses

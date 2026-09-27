@@ -1,13 +1,13 @@
 import torch
-import numpy as np
-import numpy.typing as npt
+from cs336_basics import tokenizer
 
 context_length = 256
 
 @torch.no_grad()
-def decode(model: torch.nn.Module, prompt_tokens: npt.NDArray[np.uint16], eos: int = 256, max_tokens: int = 256, temperature: float = 1.0, top_p: float | None = None) -> npt.NDArray[np.uint16]:
+def decode(model: torch.nn.Module, prompt_tokens: list[int], eos: int = 256, max_tokens: int = 256, temperature: float = 1.0, top_p: float | None = None) -> list[int]:
     # one forward pass
-    input_tokens = torch.tensor(prompt_tokens.astype(np.int64), device="mps").squeeze(0) # TODO: dynamic device
+    input_token_length = len(prompt_tokens)
+    input_tokens = torch.tensor(prompt_tokens, device=next(model.parameters()).device).unsqueeze(0)
     for _ in range(max_tokens):
         logits: torch.Tensor = model.forward(input_tokens)[:, -1, :] # b x vocab
         logits *= 1.0 / temperature
@@ -34,5 +34,11 @@ def decode(model: torch.nn.Module, prompt_tokens: npt.NDArray[np.uint16], eos: i
             break
         if len(input_tokens) >= context_length:
             break
-    return input_tokens.squeeze().numpy().astype(np.uint16)
+    return input_tokens.squeeze().tolist()[input_token_length:]
+
+def decode_str(input: str, model: torch.nn.Module, vocab_filepath: str, merges_filepath: str, special_tokens: list[str] = ["<|endoftext|>"], eos: int = 256, max_tokens: int = 256, temperature: float = 1.0, top_p: float | None = None) -> str:
+    toknizer = tokenizer.Tokenizer.from_files(vocab_filepath, merges_filepath, special_tokens)
+    input_tokens = toknizer.encode(input)
+    output_tokens = decode(model, input_tokens, eos, max_tokens, temperature, top_p)
+    return toknizer.decode(output_tokens)
     
