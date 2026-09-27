@@ -15,7 +15,6 @@ from pathlib import Path
 
 import modal
 import numpy as np
-import numpy.typing as npt
 import torch
 import wandb
 
