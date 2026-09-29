@@ -85,11 +85,13 @@ BATCH_SIZE=1; uv run python -m cs336_basics.training_together --modal --batch-si
 
 Larger batch sizes take significantly longer per step, but tend to decrease training and validation loss faster per step. Very small batch size lead to very noisy variation in loss per step. 
 
+![Batch Size Tuning](batch_size_tuning.png)
+
 7.2 - generate)
 decoding.decode_str("jack and jill ran up the hill", model, "tinystories_vocab.pkl", "tinystories_merges.pkl")
 '. He was collecting rocks and inches long and steered at the hill. After a lot of work, he saw all the rocks and became a symbol of the hill. He was so amazed by it. After that, he wanted to go back in the maze he was scared of, but he started running. He stamped signs and shouted, "I\'m not really scared - I\'m just a dark and young hill".\nBut then the sun started to come out. It was a too hot and snowy time. Tom couldn\'t believe what he thought, but he was still scared of the dark. Suddenly, he heard a loud rumble of harsh wind outside his house. \nThe rainbow spread through the air, and Tom felt like it was going to turn into two rooms! He knew he\'d never be in the maze again. But he was determined to come back soon. He jumped into his new room and stopped smiling.\n<|endoftext|>'
 
 Generally, the text seems quite coherent and sounds like something you'd get out of the tinystories dataset. Factors that affect quality: (1) the coherence of the initial prompt.
 
-7.3)
+7.3) At previous optimal learning rate, training loss blows up to NaN. With RMSNorm, even at the divergent learning rates, training loss increased for a bit in the unstable regime then started decreasing again, and never went to NaN. And since you need to use a lower learning rate for stability, your loss converges more slowly, leading to a larger loss for the same amount of compute. 
 
