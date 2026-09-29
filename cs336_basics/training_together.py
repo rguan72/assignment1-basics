@@ -35,7 +35,7 @@ class Config:
     d_model: int = 512
     num_layers: int = 4
     num_heads: int = 16
-    d_ff: int = 1344
+    d_ff: int = 2048
     rope_theta: float = 10_000
     # optimization
     batch_size: int = 64
