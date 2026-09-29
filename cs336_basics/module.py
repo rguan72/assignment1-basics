@@ -138,8 +138,6 @@ class CausalMultiHeadSelfAttention(nn.Module):
 class TransformerBlock(nn.Module):
     def __init__(self, d_model: int, num_heads: int, d_ff: int, theta: float, max_seq_len: int):
         super().__init__()
-        self.ln1 = RMS(d_model) # params: d_model
-        self.ln2 = RMS(d_model) # params: d_model
         self.attn = CausalMultiHeadSelfAttention(d_model, num_heads, theta, max_seq_len) # params: 4 * num_heads * dk * d_model
         self.ffn = SwiGLU(d_model, d_ff) # params: 3 * d_model * d_ff
         # Total params: 2d_model + 4d_model(num_heads*dk) + 3d_model * d_ff = d_model(4num_heads*dk + 3d_ff + 2)
@@ -147,10 +145,10 @@ class TransformerBlock(nn.Module):
         # = 8*b*t(28/3*d_model + t*num_heads)
 
     def forward(self, x: Float[Tensor, "batch time channel"]) -> Tensor:
-        x = x + self.attn.forward(self.ln1.forward(x), None) # FLOPS: 4(b*t*num_heads*(d_model//num_heads))(2d_model+t)
+        x = x + self.attn.forward(x, None) # FLOPS: 4(b*t*num_heads*(d_model//num_heads))(2d_model+t)
         # assume d_model % num_heads == 0
         # FLOPS (simplified): 4(b*t*d_model)(2d_model+t)
-        x = x + self.ffn.forward(self.ln2.forward(x)) # FLOPS: 6(b*t*d_model*d_ff)
+        x = x + self.ffn.forward(x) # FLOPS: 6(b*t*d_model*d_ff)
         return x
         # Total FLOPS: 4(b*max_seq_len*d_model)(2d_model+max_seq_len) + 6(b*max_seq_len*d_model*d_ff) 
         # = 2(b*max_seq_len*d_model)(2(2d_model+max_seq_len) + 3d_ff) 
@@ -162,7 +160,6 @@ class TransformerLM(nn.Module):
         self.token_embeddings = Embedding(vocab_size, d_model) # params: vocab_size * d_model
         self.layers = nn.Sequential(*[TransformerBlock(d_model, num_heads, d_ff, rope_theta, context_length) for _ in range(num_layers)])
         # params: num_layers * d_model(4num_heads*dk + 3d_ff + 2)
-        self.ln_final = RMS(d_model) # d_model
         self.lm_head = Linear(d_model, vocab_size) # d_model * vocab_size
         # total params: vocab_size * d_model + num_layers * d_model(4num_heads*dk + 3d_ff + 2) + d_model + d_model * vocab_size
         # = d_model(2vocab_size + num_layers(4num_heads*dk + 3d_ff + 2) + 1)
@@ -173,7 +170,6 @@ class TransformerLM(nn.Module):
     def forward(self, x: Int[Tensor, "batch time"]) -> Tensor:
         x= self.token_embeddings.forward(x)
         x = self.layers.forward(x) # FLOPS: num_layers * 2(b*context_length*d_model)(4d_model + 2context_length + 3d_ff)
-        x = self.ln_final.forward(x)
         x = self.lm_head.forward(x) # FLOPS: 2*b*context_length*(d_model)(vocab_size)
         return x
         # total FLOPS: num_layers * 2(b*context_length*d_model)(4d_model + 2context_length + 3d_ff) + 2*b*context_length*(d_model)(vocab_size)
