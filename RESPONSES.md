@@ -71,7 +71,10 @@ So that adds up to 13 FLOPs per parameter.
 
 d) Forward pass FLOPs: 2b*context_length*d_model(num_layers*(4d_model + 2context_length + 3d_ff) + vocab_size). Backward pass FLOPs: 4b*context_length*d_model(num_layers*(4d_model + 2context_length + 3d_ff) + vocab_size). AdamW optimizer FLOPs are negligible. This leads to 10,550,309,683,200 · b FLOPs per step. For 400K steps and batch size 1024, that is 4,321,406,846,238,720,000,000 ≈ 4.32 × 10^{21} FLOPs for training. Total seconds: 4,321,406,846,238,720,000,000 / (495 teraFLOPs/s * 0.5) ≈ 17,460,230 seconds ~ 202 days on a single H100. 
 
-7.2a) decoding.decode_str("jack and jill ran up the hill", model, "tinystories_vocab.pkl", "tinystories_merges.pkl")
+7.2.3a) Learning rate strategy: Given the two B200-hour budget, we will tune only the peak learning rate using a coarse logarithmic search by factors of three for five different learning rates. 1e-3 had good stability, so we will start by increasing the learning rates, running 3e-2, 1e-2, 3e-3.
+
+7.2 - generate)
+decoding.decode_str("jack and jill ran up the hill", model, "tinystories_vocab.pkl", "tinystories_merges.pkl")
 '. He was collecting rocks and inches long and steered at the hill. After a lot of work, he saw all the rocks and became a symbol of the hill. He was so amazed by it. After that, he wanted to go back in the maze he was scared of, but he started running. He stamped signs and shouted, "I\'m not really scared - I\'m just a dark and young hill".\nBut then the sun started to come out. It was a too hot and snowy time. Tom couldn\'t believe what he thought, but he was still scared of the dark. Suddenly, he heard a loud rumble of harsh wind outside his house. \nThe rainbow spread through the air, and Tom felt like it was going to turn into two rooms! He knew he\'d never be in the maze again. But he was determined to come back soon. He jumped into his new room and stopped smiling.\n<|endoftext|>'
 
 Generally, the text seems quite coherent and sounds like something you'd get out of the tinystories dataset. Factors that affect quality: (1) 
