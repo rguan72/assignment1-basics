@@ -93,5 +93,8 @@ decoding.decode_str("jack and jill ran up the hill", model, "tinystories_vocab.p
 
 Generally, the text seems quite coherent and sounds like something you'd get out of the tinystories dataset. Factors that affect quality: (1) the coherence of the initial prompt.
 
-7.3) At previous optimal learning rate, training loss blows up to NaN. With RMSNorm, even at the divergent learning rates, training loss increased for a bit in the unstable regime then started decreasing again, and never went to NaN. And since you need to use a lower learning rate for stability, your loss converges more slowly, leading to a larger loss for the same amount of compute. 
+7.3 - no rms norm) At previous optimal learning rate, training loss blows up to NaN. With RMSNorm, even at the divergent learning rates, training loss increased for a bit in the unstable regime then started decreasing again, and never went to NaN. And since you need to use a lower learning rate for stability, your loss converges more slowly, leading to a larger loss for the same amount of compute. 
+
+7.3 - post norm)
+
 
