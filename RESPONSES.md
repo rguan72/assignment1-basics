@@ -97,7 +97,7 @@ Generally, the text seems quite coherent and sounds like something you'd get out
 
 7.3 - post norm) ![Post Norm](postnorm.png)
 
-7.3 - NoPE)
+7.3 - NoPE) ![Nope](nope.png)
 
 7.3 - SiLU) Parameter matched SiLU performs comparably to SwiGLU when matching parameter counts. 
 
