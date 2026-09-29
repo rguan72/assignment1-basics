@@ -73,9 +73,23 @@ d) Forward pass FLOPs: 2b*context_length*d_model(num_layers*(4d_model + 2context
 
 7.2.3a) Learning rate strategy: Given the two B200-hour budget, we will tune only the peak learning rate using a coarse logarithmic search by factors of three for five different learning rates. 1e-3 had good stability, so we will start by increasing the learning rates, running 3e-2, 1e-2, 3e-3.
 
+b) 3e-2 and 1e-2 diverged and 3e-3 did not so I also run 6e-3 to get closer to the edge of stability. 3e-3 and 6e-3 performed better than 1e-3 and 1e-2 was the divergence point. 6e-3 slightly outperformed 1e-2.
+
+![Learning Rate Tuning](lr_tuning.png)
+
+7.2.3b) Peak memory usage during training: 0.34 + 0.087 * b GB.
+A B200 has 180 GB of RAM, so we can do a max batch size of b = 1917. We will test with
+b = 1, 16, 64, 128, 512, 1024 for 5,000 iterations.
+
+BATCH_SIZE=1; uv run python -m cs336_basics.training_together --modal --batch-size "$BATCH_SIZE" --run-name "b${BATCH_SIZE}" --checkpoint-path "b${BATCH_SIZE}.pkl" --iters 5000
+
+Larger batch sizes take significantly longer per step, but tend to decrease training and validation loss faster per step. Very small batch size lead to very noisy variation in loss per step. 
+
 7.2 - generate)
 decoding.decode_str("jack and jill ran up the hill", model, "tinystories_vocab.pkl", "tinystories_merges.pkl")
 '. He was collecting rocks and inches long and steered at the hill. After a lot of work, he saw all the rocks and became a symbol of the hill. He was so amazed by it. After that, he wanted to go back in the maze he was scared of, but he started running. He stamped signs and shouted, "I\'m not really scared - I\'m just a dark and young hill".\nBut then the sun started to come out. It was a too hot and snowy time. Tom couldn\'t believe what he thought, but he was still scared of the dark. Suddenly, he heard a loud rumble of harsh wind outside his house. \nThe rainbow spread through the air, and Tom felt like it was going to turn into two rooms! He knew he\'d never be in the maze again. But he was determined to come back soon. He jumped into his new room and stopped smiling.\n<|endoftext|>'
 
-Generally, the text seems quite coherent and sounds like something you'd get out of the tinystories dataset. Factors that affect quality: (1) 
+Generally, the text seems quite coherent and sounds like something you'd get out of the tinystories dataset. Factors that affect quality: (1) the coherence of the initial prompt.
+
+7.3)
 

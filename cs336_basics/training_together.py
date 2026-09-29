@@ -40,7 +40,7 @@ class Config:
     # optimization
     batch_size: int = 64
     iters: int = 20_000
-    max_learning_rate: float = 1e-3
+    max_learning_rate: float = 6e-3
     min_learning_rate: float | None = None  # default: max_learning_rate / 10
     warmup_iters: int | None = None  # default: iters // 20
     cosine_cycle_iters: int | None = None  # default: iters
