@@ -147,10 +147,10 @@ class TransformerBlock(nn.Module):
         # = 8*b*t(28/3*d_model + t*num_heads)
 
     def forward(self, x: Float[Tensor, "batch time channel"]) -> Tensor:
-        x = self.ln1.forward(x + self.attn.forward(x, None)) # FLOPS: 4(b*t*num_heads*(d_model//num_heads))(2d_model+t)
+        x = x + self.attn.forward(self.ln1.forward(x), None) # FLOPS: 4(b*t*num_heads*(d_model//num_heads))(2d_model+t)
         # assume d_model % num_heads == 0
         # FLOPS (simplified): 4(b*t*d_model)(2d_model+t)
-        x = self.ln2.forward(x + self.ffn.forward(x)) # FLOPS: 6(b*t*d_model*d_ff)
+        x = x + self.ffn.forward(self.ln2.forward(x)) # FLOPS: 6(b*t*d_model*d_ff)
         return x
         # Total FLOPS: 4(b*max_seq_len*d_model)(2d_model+max_seq_len) + 6(b*max_seq_len*d_model*d_ff) 
         # = 2(b*max_seq_len*d_model)(2(2d_model+max_seq_len) + 3d_ff) 
