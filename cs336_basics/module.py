@@ -111,6 +111,7 @@ class CausalMultiHeadSelfAttention(nn.Module):
         self.q_proj = Linear(d_model, num_heads * self.dk)
         self.k_proj = Linear(d_model, num_heads * self.dk)
         self.v_proj = Linear(d_model, num_heads * self.dk)
+        self.rope = RotaryPositionEmbedding(theta, self.dk, max_seq_len)
         # params: 4 * num_heads * dk * d_model
 
     def forward(self, x: Float[Tensor, "batch time channel"], token_positions: Int[Tensor, "... sequence_length"] | None) -> Tensor:
@@ -122,10 +123,12 @@ class CausalMultiHeadSelfAttention(nn.Module):
         v = self.v_proj.forward(x)
         # FLOPS: 6*b*t*num_heads*dk*d_model
         q_batched = einops.rearrange(q, 'b t (n k) -> b n t k', k=self.dk, n=self.num_heads)
+        q_batched_rope = self.rope.forward(q_batched, token_positions)
         k_batched = einops.rearrange(k, 'b t (n k) -> b n t k', k=self.dk, n=self.num_heads)
+        k_batched_rope = self.rope.forward(k_batched, token_positions)
         v_batched = einops.rearrange(v, 'b t (n k) -> b n t k', k=self.dk, n=self.num_heads)
         mask = torch.tril(torch.ones(t, t, device=x.device)) == 1
-        attn = scaled_dot_product_attention(q_batched, k_batched, v_batched, mask) # b n t dk
+        attn = scaled_dot_product_attention(q_batched_rope, k_batched_rope, v_batched, mask) # b n t dk
         # FLOPS: 2 * (b * num_heads) * t * t * (dk + dk) = 4(b*num_heads)(t^2)(dk)
         return self.output_proj.forward(einops.rearrange(attn, 'b n t dk -> b t (n dk)'))
         # FLOPS: 2(b*t)(num_heads*dk)(d_model)
