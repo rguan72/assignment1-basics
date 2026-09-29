@@ -43,20 +43,6 @@ class RMS(nn.Module):
         return result.to(in_dtype)
         # Activations: 4b * t * d_model
 
-class SiLU(nn.Module):
-    def __init__(self, d_model: int, d_ff: int, device=None, dtype=None):
-        super().__init__()
-        self.w1 = Linear(d_model, d_ff)
-        self.w2 = Linear(d_ff, d_model)
-        # params: 3 * d_model * d_ff
-    
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        w1x = self.w1(x) # FLOPS: 2 x prod(b_dims) x d_model x d_ff.
-        silu = w1x * torch.sigmoid(w1x)
-        return self.w2(silu)
-        # total FLOPS: 6 x prod(b_dims) x d_model x d_ff
-        # total Activations: 4b * t (4d_ff + d_model)
-
 class SwiGLU(nn.Module):
     def __init__(self, d_model: int, d_ff: int, device=None, dtype=None):
         super().__init__()
@@ -155,7 +141,7 @@ class TransformerBlock(nn.Module):
         self.ln1 = RMS(d_model) # params: d_model
         self.ln2 = RMS(d_model) # params: d_model
         self.attn = CausalMultiHeadSelfAttention(d_model, num_heads, theta, max_seq_len) # params: 4 * num_heads * dk * d_model
-        self.ffn = SiLU(d_model, d_ff) # params: 3 * d_model * d_ff
+        self.ffn = SwiGLU(d_model, d_ff) # params: 3 * d_model * d_ff
         # Total params: 2d_model + 4d_model(num_heads*dk) + 3d_model * d_ff = d_model(4num_heads*dk + 3d_ff + 2)
         # Total activations: 2 * 4b * t * d_model + 4 * b * t(5d_model + 2t * num_heads) + 4b * t (4d_ff + d_model)
         # = 8*b*t(28/3*d_model + t*num_heads)
