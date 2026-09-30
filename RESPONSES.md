@@ -99,6 +99,9 @@ Generally, the text seems quite coherent and sounds like something you'd get out
 
 7.3 - NoPE) ![Nope](nope.png)
 
-7.3 - SiLU) Parameter matched SiLU performs comparably to SwiGLU when matching parameter counts. 
+7.3 - SiLU) ![SiLU](silu.png) Parameter matched SiLU performs comparably to SwiGLU when matching parameter counts, and actually slightly outperforms SwiGLU.  
 
-7.4)
+7.4) ![OWT](owt.png) OWT loss is higher than TinyStories loss for the same number of steps: it looks like the model we are training is less good at predicting OWT text when trained on it than Tinystories text. This may be due to extra diversity in the OWT dataset. The output quality is worse because OWT's data distribution is significantly more complex, so it requires a more complex model to fit the OWT data distribution than TinyStories (more compute and more parameters). Thus when we are on a relatively small compute and parameters budget, we optimize towards a model that underfits OWT data and produces a language model with worse capabilities that produces less fluent text than TinyStories. 
+
+decoding.decode_str("my name is", "owt.pkl", 32_000, "owt_vocab.pkl", "owt_merges.pkl", max_tokens=250)
+' me and I was a UBMGlox. It took a long pause about a year, and it changed all of a sudden when I woke up to the drone. And while traveling was mind blowing at the point where I had a long headhanger, it was blind, and therefore scared to the brim-fills of the jet to find a hideous erection of its own. I was a king who would remain the night. And at that moment there was a winter back of ten — after a three, six, eight-hour service that never happened, the 11 hours, and moderately the suite of artificial intelligence that exploded outside of that nation. The convention would consist of small and medium-sized antennas filled with spying machines for the amazing ease in our airways. That would not surprise me. Footwheat is one of those in the X-25 history collection, students have successfully heard their stories and tell them row over. They have figured out what was wrong with its instincts, say how different training styles are. It was Bill Gates, to life preserve itself. You love television. What do you have to go through here? What option does a new atmospheric form of pilot science or TV? What type of'

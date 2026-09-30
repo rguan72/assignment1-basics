@@ -1,5 +1,8 @@
 import torch
 from cs336_basics import tokenizer
+from cs336_basics import module
+from cs336_basics import optimizer
+from cs336_basics import training
 
 context_length = 256
 
@@ -36,7 +39,24 @@ def decode(model: torch.nn.Module, prompt_tokens: list[int], eos: int = 256, max
             break
     return input_tokens.squeeze().tolist()[input_token_length:]
 
-def decode_str(input: str, model: torch.nn.Module, vocab_filepath: str, merges_filepath: str, special_tokens: list[str] = ["<|endoftext|>"], eos: int = 256, max_tokens: int = 256, temperature: float = 1.0, top_p: float | None = None) -> str:
+def decode_str(input: str, model_filepath: str, vocab_size: int, vocab_filepath: str, merges_filepath: str, special_tokens: list[str] = ["<|endoftext|>"], eos: int = 256, max_tokens: int = 256, temperature: float = 1.0, top_p: float | None = None) -> str:
+    model = module.TransformerLM(
+        vocab_size = vocab_size,
+        context_length = 256,
+        d_model = 512,
+        num_layers = 4,
+        num_heads = 16,
+        d_ff = 1344,
+        rope_theta = 10_000,
+    )
+    optim = optimizer.AdamW(
+        model.parameters(),
+        1e-3,
+        0.01,
+        (0.9, 0.999),
+        1e-8,
+    )
+    training.load_checkpoint(model_filepath, model, optim)
     toknizer = tokenizer.Tokenizer.from_files(vocab_filepath, merges_filepath, special_tokens)
     input_tokens = toknizer.encode(input)
     output_tokens = decode(model, input_tokens, eos, max_tokens, temperature, top_p)
